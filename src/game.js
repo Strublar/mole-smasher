@@ -7,7 +7,8 @@
  * with 60 FPS target using requestAnimationFrame.
  * 
  * Integrates Grid and Mole systems for hole management and
- * mole rendering/collision detection.
+ * mole rendering/collision detection. Also integrates spawning
+ * system and timer management for mole lifecycle control.
  * 
  * @module game
  */
@@ -136,7 +137,7 @@ const GameEngine = (() => {
 
   /**
    * Update game state each frame
-   * Handles timer countdown, mole updates, state validation, and game-over conditions
+   * Handles timer countdown, mole updates, spawning, state validation, and game-over conditions
    * 
    * @param {number} deltaTime - Time elapsed since last frame in seconds
    * @param {number} currentTime - Current timestamp in milliseconds
@@ -148,6 +149,9 @@ const GameEngine = (() => {
       0,
       GAME_CONFIG.GAME_DURATION - Math.floor(elapsedSeconds)
     );
+
+    // Update spawner - checks if new mole should spawn and spawns/cleans up as needed
+    MoleSpawner.update(currentTime);
 
     // Update all active moles
     if (moles && moles.length > 0) {
@@ -326,6 +330,7 @@ const GameEngine = (() => {
   /**
    * Start the game
    * Initializes game state and begins the game loop
+   * Integrates spawner and timer initialization
    */
   const start = () => {
     if (gameState.isRunning) return;
@@ -339,6 +344,9 @@ const GameEngine = (() => {
     // Clear moles array
     moles = [];
 
+    // Initialize spawner and timer systems
+    MoleSpawner.initialize();
+
     updateButtonStates();
     requestAnimationFrame(gameLoop);
 
@@ -348,6 +356,7 @@ const GameEngine = (() => {
   /**
    * Reset the game to initial state
    * Clears score, timer, moles, and prepares for new game
+   * Also resets spawner and timer systems
    */
   const reset = () => {
     gameState.isRunning = false;
@@ -358,6 +367,9 @@ const GameEngine = (() => {
 
     // Clear moles
     moles = [];
+
+    // Reset spawner and timer
+    MoleSpawner.reset();
 
     updateScoreDisplay();
     updateTimerDisplay();
@@ -378,10 +390,14 @@ const GameEngine = (() => {
   /**
    * Handle game over condition
    * Stops the game and displays final state
+   * Stops spawning and timer systems
    */
   const gameOver = () => {
     gameState.isRunning = false;
     updateButtonStates();
+
+    // Stop spawner and timer
+    MoleSpawner.reset();
 
     console.log(`Game Over! Final Score: ${gameState.score}`);
 
@@ -399,7 +415,7 @@ const GameEngine = (() => {
   };
 
   // =========================================================================
-  // PUBLIC API - Mole Management (for spawning system in future PRs)
+  // PUBLIC API - Mole Management (for spawning system)
   // =========================================================================
 
   /**
