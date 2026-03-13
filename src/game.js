@@ -10,6 +10,10 @@
  * mole rendering/collision detection. Also integrates spawning
  * system and timer management for mole lifecycle control.
  * 
+ * The game engine uses the CountdownTimer as the single source of truth
+ * for all timing information. All timing queries go through the timer module
+ * rather than maintaining separate elapsed time calculations.
+ * 
  * @module game
  */
 
@@ -26,8 +30,6 @@ const GameEngine = (() => {
   let gameState = {
     isRunning: false,
     score: 0,
-    timeRemaining: 60,
-    startTime: null,
     lastFrameTime: 0
   };
 
@@ -126,7 +128,7 @@ const GameEngine = (() => {
     gameState.lastFrameTime = currentTime;
 
     // Update game state
-    update(deltaTime, currentTime);
+    update(deltaTime);
 
     // Render frame
     render();
@@ -137,24 +139,19 @@ const GameEngine = (() => {
 
   /**
    * Update game state each frame
-   * Handles timer countdown, mole updates, spawning, state validation, and game-over conditions
+   * Queries timer for remaining time, updates moles, spawning, and checks game-over
    * 
    * @param {number} deltaTime - Time elapsed since last frame in seconds
-   * @param {number} currentTime - Current timestamp in milliseconds
    */
-  const update = (deltaTime, currentTime) => {
-    // Calculate time remaining based on elapsed time
-    const elapsedSeconds = (currentTime - gameState.startTime) / 1000;
-    gameState.timeRemaining = Math.max(
-      0,
-      GAME_CONFIG.GAME_DURATION - Math.floor(elapsedSeconds)
-    );
-
-    // Update spawner - checks if new mole should spawn and spawns/cleans up as needed
-    MoleSpawner.update(currentTime);
+  const update = (deltaTime) => {
+    // Update spawner - checks if new mole should spawn and cleans up as needed
+    // Pass current timestamp from timer
+    const elapsedTime = CountdownTimer.getElapsedTime();
+    MoleSpawner.update(elapsedTime * 1000); // Convert to ms for compatibility
 
     // Update all active moles
     if (moles && moles.length > 0) {
+      const currentTime = GameUtils.getCurrentTime();
       for (let i = moles.length - 1; i >= 0; i--) {
         const mole = moles[i];
         const isActive = mole.update(currentTime);
@@ -170,8 +167,8 @@ const GameEngine = (() => {
     updateScoreDisplay();
     updateTimerDisplay();
 
-    // Check for game over condition
-    if (gameState.timeRemaining <= 0) {
+    // Check for game over condition - timer is authoritative
+    if (CountdownTimer.isGameOver()) {
       gameOver();
     }
   };
@@ -208,16 +205,19 @@ const GameEngine = (() => {
   /**
    * Draw game status text on canvas
    * Displays current score and time remaining
+   * Queries time directly from timer module for accuracy
    */
   const drawGameStatus = () => {
     const fontSize = 20;
+    const timeRemaining = CountdownTimer.getRemainingTimeFloor();
+
     ctx.font = `bold ${fontSize}px Arial`;
     ctx.fillStyle = '#667eea';
     ctx.textAlign = 'left';
     ctx.fillText(`Score: ${gameState.score}`, 20, 40);
 
     ctx.textAlign = 'right';
-    ctx.fillText(`Time: ${gameState.timeRemaining}s`, GAME_CONFIG.CANVAS_WIDTH - 20, 40);
+    ctx.fillText(`Time: ${timeRemaining}s`, GAME_CONFIG.CANVAS_WIDTH - 20, 40);
   };
 
   // =========================================================================
@@ -275,9 +275,9 @@ const GameEngine = (() => {
     for (let i = 0; i < moles.length; i++) {
       const mole = moles[i];
       if (mole.isHit(x, y)) {
-        // Mole was smashed - score will be incremented in future PR
+        // Mole was smashed
         console.log(`Mole ${i} smashed at (${x}, ${y})`);
-        // TODO: Increment score when scoring system is implemented
+        // TODO: Increment score when scoring system is implemented in future PR
         break; // Only one mole can be hit per click
       }
     }
@@ -299,11 +299,13 @@ const GameEngine = (() => {
 
   /**
    * Update timer display in DOM
+   * Reads directly from timer module's getRemainingTimeFloor() for accuracy
    */
   const updateTimerDisplay = () => {
     const timerDisplay = document.getElementById('timer-display');
     if (timerDisplay) {
-      timerDisplay.textContent = gameState.timeRemaining;
+      const timeRemaining = CountdownTimer.getRemainingTimeFloor();
+      timerDisplay.textContent = timeRemaining;
     }
   };
 
@@ -329,22 +331,24 @@ const GameEngine = (() => {
 
   /**
    * Start the game
-   * Initializes game state and begins the game loop
-   * Integrates spawner and timer initialization
+   * Initializes game state, timer, spawner, and begins the game loop
+   * All timing systems are initialized here (single initialization point)
    */
   const start = () => {
     if (gameState.isRunning) return;
 
     gameState.isRunning = true;
     gameState.score = 0;
-    gameState.timeRemaining = GAME_CONFIG.GAME_DURATION;
-    gameState.startTime = Date.now();
-    gameState.lastFrameTime = Date.now();
+    gameState.lastFrameTime = GameUtils.getCurrentTime();
 
     // Clear moles array
     moles = [];
 
-    // Initialize spawner and timer systems
+    // Initialize timer with game duration - THIS is the single source of truth
+    CountdownTimer.reset();
+    CountdownTimer.start(GAME_CONFIG.GAME_DURATION);
+
+    // Initialize spawner - uses timer that's already running
     MoleSpawner.initialize();
 
     updateButtonStates();
@@ -361,15 +365,14 @@ const GameEngine = (() => {
   const reset = () => {
     gameState.isRunning = false;
     gameState.score = 0;
-    gameState.timeRemaining = GAME_CONFIG.GAME_DURATION;
-    gameState.startTime = null;
     gameState.lastFrameTime = 0;
 
     // Clear moles
     moles = [];
 
-    // Reset spawner and timer
+    // Reset spawner and timer systems
     MoleSpawner.reset();
+    CountdownTimer.reset();
 
     updateScoreDisplay();
     updateTimerDisplay();
@@ -394,14 +397,13 @@ const GameEngine = (() => {
    */
   const gameOver = () => {
     gameState.isRunning = false;
-    updateButtonStates();
-
-    // Stop spawner and timer
+    CountdownTimer.stop();
     MoleSpawner.reset();
+    updateButtonStates();
 
     console.log(`Game Over! Final Score: ${gameState.score}`);
 
-    // Optional: Show game over message on canvas
+    // Show game over message on canvas
     ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
     ctx.fillRect(0, 0, GAME_CONFIG.CANVAS_WIDTH, GAME_CONFIG.CANVAS_HEIGHT);
 
