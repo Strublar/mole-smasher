@@ -6,6 +6,9 @@
  * and core gameplay mechanics. Implements the main game loop
  * with 60 FPS target using requestAnimationFrame.
  * 
+ * Integrates Grid and Mole systems for hole management and
+ * mole rendering/collision detection.
+ * 
  * @module game
  */
 
@@ -16,6 +19,9 @@ const GameEngine = (() => {
 
   let canvas = null;
   let ctx = null;
+  let grid = null;
+  let moles = []; // Array of Mole instances
+
   let gameState = {
     isRunning: false,
     score: 0,
@@ -57,6 +63,23 @@ const GameEngine = (() => {
     canvas.height = GAME_CONFIG.CANVAS_HEIGHT;
 
     return true;
+  };
+
+  /**
+   * Initialize grid system
+   * Creates 3x3 grid of holes with calculated positions
+   * 
+   * @returns {boolean} True if grid initialized successfully
+   */
+  const initializeGrid = () => {
+    try {
+      grid = new Grid(GAME_CONFIG.CANVAS_WIDTH, GAME_CONFIG.CANVAS_HEIGHT, 9);
+      console.log('Grid initialized with 9 holes (3x3)');
+      return true;
+    } catch (error) {
+      console.error('Failed to initialize grid:', error);
+      return false;
+    }
   };
 
   /**
@@ -102,7 +125,7 @@ const GameEngine = (() => {
     gameState.lastFrameTime = currentTime;
 
     // Update game state
-    update(deltaTime);
+    update(deltaTime, currentTime);
 
     // Render frame
     render();
@@ -113,17 +136,31 @@ const GameEngine = (() => {
 
   /**
    * Update game state each frame
-   * Handles timer countdown, state validation, and game-over conditions
+   * Handles timer countdown, mole updates, state validation, and game-over conditions
    * 
    * @param {number} deltaTime - Time elapsed since last frame in seconds
+   * @param {number} currentTime - Current timestamp in milliseconds
    */
-  const update = (deltaTime) => {
+  const update = (deltaTime, currentTime) => {
     // Calculate time remaining based on elapsed time
-    const elapsedSeconds = (Date.now() - gameState.startTime) / 1000;
+    const elapsedSeconds = (currentTime - gameState.startTime) / 1000;
     gameState.timeRemaining = Math.max(
       0,
       GAME_CONFIG.GAME_DURATION - Math.floor(elapsedSeconds)
     );
+
+    // Update all active moles
+    if (moles && moles.length > 0) {
+      for (let i = moles.length - 1; i >= 0; i--) {
+        const mole = moles[i];
+        const isActive = mole.update(currentTime);
+
+        // Remove mole if its lifetime has expired
+        if (!isActive) {
+          moles.splice(i, 1);
+        }
+      }
+    }
 
     // Update UI displays
     updateScoreDisplay();
@@ -137,17 +174,27 @@ const GameEngine = (() => {
 
   /**
    * Render current game state to canvas
-   * Draws background, game elements, and UI elements
+   * Draws background, game elements (grid, moles), and UI elements
    */
   const render = () => {
     // Clear canvas
     ctx.fillStyle = '#f0f0f0';
     ctx.fillRect(0, 0, GAME_CONFIG.CANVAS_WIDTH, GAME_CONFIG.CANVAS_HEIGHT);
 
+    // Draw grid (holes)
+    if (grid) {
+      grid.render(ctx);
+    }
+
+    // Draw all active moles
+    if (moles && moles.length > 0) {
+      moles.forEach((mole) => {
+        mole.render(ctx);
+      });
+    }
+
     // Draw game title/status
     drawGameStatus();
-
-    // TODO: Draw game elements (holes, moles) as features are added
   };
 
   // =========================================================================
@@ -210,15 +257,26 @@ const GameEngine = (() => {
 
   /**
    * Process click/tap at given coordinates
-   * Placeholder for mole collision detection logic
+   * Checks if click hits any active mole and updates score accordingly
    * 
    * @param {number} x - X coordinate of click
    * @param {number} y - Y coordinate of click
    */
   const handleClick = (x, y) => {
-    // TODO: Implement mole collision detection
-    // Check if click hits any active mole and update score
-    console.log(`Click at (${x}, ${y})`);
+    if (!moles || moles.length === 0) {
+      return;
+    }
+
+    // Check each mole for collision
+    for (let i = 0; i < moles.length; i++) {
+      const mole = moles[i];
+      if (mole.isHit(x, y)) {
+        // Mole was smashed - score will be incremented in future PR
+        console.log(`Mole ${i} smashed at (${x}, ${y})`);
+        // TODO: Increment score when scoring system is implemented
+        break; // Only one mole can be hit per click
+      }
+    }
   };
 
   // =========================================================================
@@ -278,6 +336,9 @@ const GameEngine = (() => {
     gameState.startTime = Date.now();
     gameState.lastFrameTime = Date.now();
 
+    // Clear moles array
+    moles = [];
+
     updateButtonStates();
     requestAnimationFrame(gameLoop);
 
@@ -286,7 +347,7 @@ const GameEngine = (() => {
 
   /**
    * Reset the game to initial state
-   * Clears score, timer, and prepares for new game
+   * Clears score, timer, moles, and prepares for new game
    */
   const reset = () => {
     gameState.isRunning = false;
@@ -295,6 +356,9 @@ const GameEngine = (() => {
     gameState.startTime = null;
     gameState.lastFrameTime = 0;
 
+    // Clear moles
+    moles = [];
+
     updateScoreDisplay();
     updateTimerDisplay();
     updateButtonStates();
@@ -302,6 +366,11 @@ const GameEngine = (() => {
     // Clear canvas
     ctx.fillStyle = '#f0f0f0';
     ctx.fillRect(0, 0, GAME_CONFIG.CANVAS_WIDTH, GAME_CONFIG.CANVAS_HEIGHT);
+
+    // Render grid in cleared state
+    if (grid) {
+      grid.render(ctx);
+    }
 
     console.log('Game reset');
   };
@@ -330,18 +399,72 @@ const GameEngine = (() => {
   };
 
   // =========================================================================
+  // PUBLIC API - Mole Management (for spawning system in future PRs)
+  // =========================================================================
+
+  /**
+   * Add a mole to the game
+   * Used by spawning system to create new moles
+   * 
+   * @param {number} holeIndex - Index of hole to spawn mole at (0-8)
+   * @param {number} currentTime - Current timestamp in milliseconds
+   * @returns {Mole|null} The created mole or null if invalid index
+   */
+  const addMole = (holeIndex, currentTime) => {
+    if (!grid) {
+      console.warn('Grid not initialized');
+      return null;
+    }
+
+    const hole = grid.getHoleAt(holeIndex);
+    if (!hole) {
+      console.warn(`Cannot add mole: invalid hole index ${holeIndex}`);
+      return null;
+    }
+
+    const mole = new Mole(hole.x, hole.y, hole.radius);
+    mole.spawn(currentTime);
+    moles.push(mole);
+
+    return mole;
+  };
+
+  /**
+   * Get current moles array
+   * 
+   * @returns {Array<Mole>} Array of active moles
+   */
+  const getMoles = () => {
+    return [...moles];
+  };
+
+  /**
+   * Get grid instance
+   * 
+   * @returns {Grid} The grid object
+   */
+  const getGrid = () => {
+    return grid;
+  };
+
+  // =========================================================================
   // PUBLIC API - Initialization
   // =========================================================================
 
   /**
    * Initialize the game engine
-   * Must be called once on page load to set up canvas and listeners
+   * Must be called once on page load to set up canvas, grid, and listeners
    * 
    * @returns {boolean} True if initialization successful
    */
   const initialize = () => {
     if (!initializeCanvas()) {
       console.error('Failed to initialize canvas');
+      return false;
+    }
+
+    if (!initializeGrid()) {
+      console.error('Failed to initialize grid');
       return false;
     }
 
@@ -360,6 +483,9 @@ const GameEngine = (() => {
     initialize,
     start,
     reset,
+    addMole,
+    getMoles,
+    getGrid,
     getGameState: () => ({ ...gameState }),
     getCanvasContext: () => ctx
   };

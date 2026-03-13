@@ -7,67 +7,83 @@ on:
       - main
 
 jobs:
-  ci:
+  lint-and-build:
     runs-on: ubuntu-latest
     
-    strategy:
-      matrix:
-        node-version: [18.x, 20.x]
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Setup Node.js ${{ matrix.node-version }}
+      
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: '20'
           cache: 'npm'
-
+      
       - name: Install dependencies
         run: npm ci
+      
+      - name: Run build script
+        run: npm run build
+      
+      - name: Run linting (if configured)
+        run: npm run lint --if-present
+      
+      - name: Run tests
+        run: npm test
 
-      - name: Validate HTML structure
+  code-quality:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Verify HTML5 structure
         run: |
-          echo "Validating HTML files..."
-          if [ -f "index.html" ]; then
-            echo "✓ index.html found"
-          else
-            echo "✗ index.html not found"
-            exit 1
-          fi
-
-      - name: Validate JavaScript syntax
-        run: |
-          echo "Checking JavaScript files for syntax errors..."
-          for js_file in src/*.js; do
-            if [ -f "$js_file" ]; then
-              node -c "$js_file" && echo "✓ $js_file syntax valid" || exit 1
-            fi
-          done
-
-      - name: Check CSS files exist
-        run: |
-          echo "Validating CSS files..."
-          if [ -f "styles/style.css" ]; then
-            echo "✓ styles/style.css found"
-          else
-            echo "✗ styles/style.css not found"
-            exit 1
-          fi
-
-      - name: Verify canvas element
-        run: |
-          echo "Verifying canvas element in HTML..."
           if grep -q '<canvas' index.html; then
             echo "✓ Canvas element found in index.html"
           else
-            echo "✗ Canvas element not found in index.html"
+            echo "✗ Canvas element missing from index.html"
             exit 1
           fi
+      
+      - name: Check for critical files
+        run: |
+          files=("index.html" "styles/style.css" "src/game.js" "js/mole.js" "js/grid.js")
+          for file in "${files[@]}"; do
+            if [ -f "$file" ]; then
+              echo "✓ Found: $file"
+            else
+              echo "✗ Missing: $file"
+              exit 1
+            fi
+          done
+      
+      - name: Verify asset files
+        run: |
+          assets=("assets/images/mole.svg" "assets/images/hole.svg")
+          for asset in "${assets[@]}"; do
+            if [ -f "$asset" ]; then
+              echo "✓ Found: $asset"
+            else
+              echo "✗ Missing: $asset"
+              exit 1
+            fi
+          done
 
-      - name: Build script
-        run: npm run build
-
-      - name: Test script
-        run: npm test
+  browser-compatibility:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Validate JavaScript syntax
+        run: |
+          for js_file in src/*.js js/*.js; do
+            if [ -f "$js_file" ]; then
+              echo "Checking syntax: $js_file"
+              node --check "$js_file" || exit 1
+            fi
+          done
