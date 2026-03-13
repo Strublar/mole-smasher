@@ -1,0 +1,306 @@
+/**
+ * style.css
+ * Styling for Mole Smasher game
+ * 
+ * Provides responsive layout, canvas styling, UI components,
+ * and animations for the whack-a-mole game.
+ */
+
+/* ============================================================================
+   Reset & Base Styles
+   ============================================================================ */
+
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #333;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+/* ============================================================================
+   Container & Layout
+   ============================================================================ */
+
+.container {
+  max-width: 900px;
+  width: 100%;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ============================================================================
+   Header
+   ============================================================================ */
+
+.game-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 2rem 1rem;
+  text-align: center;
+}
+
+.game-header h1 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  letter-spacing: 1px;
+}
+
+.subtitle {
+  font-size: 1rem;
+  font-weight: 300;
+  opacity: 0.95;
+}
+
+/* ============================================================================
+   Game Wrapper & Canvas
+   ============================================================================ */
+
+.game-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2rem 1rem;
+  gap: 1.5rem;
+}
+
+.game-info {
+  display: flex;
+  justify-content: center;
+  gap: 3rem;
+  width: 100%;
+  margin-bottom: 1rem;
+}
+
+.info-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.info-item label {
+  color: #667eea;
+}
+
+.info-item span {
+  color: #764ba2;
+  font-size: 1.5rem;
+  min-width: 60px;
+  text-align: right;
+}
+
+#gameCanvas {
+  border: 3px solid #667eea;
+  border-radius: 8px;
+  background: #f0f0f0;
+  cursor: crosshair;
+  max-width: 100%;
+  height: auto;
+  display: block;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+}
+
+/* ============================================================================
+   Game Controls
+   ============================================================================ */
+
+.game-controls {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  width: 100%;
+  flex-wrap: wrap;
+}
+
+.btn {
+  padding: 0.75rem 2rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.btn-secondary {
+  background: #e0e0e0;
+  color: #333;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: #d0d0d0;
+  transform: translateY(-2px);
+}
+
+.btn-secondary:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ============================================================================
+   Footer
+   ============================================================================ */
+
+.game-footer {
+  background: #f5f5f5;
+  color: #666;
+  text-align: center;
+  padding: 1.5rem;
+  font-size: 0.9rem;
+  border-top: 1px solid #e0e0e0;
+}
+
+/* ============================================================================
+   Responsive Design
+   ============================================================================ */
+
+/* Tablet (768px and up) */
+@media (max-width: 768px) {
+  .game-header h1 {
+    font-size: 2rem;
+  }
+
+  .subtitle {
+    font-size: 0.95rem;
+  }
+
+  .game-wrapper {
+    padding: 1.5rem 1rem;
+  }
+
+  .game-info {
+    gap: 2rem;
+  }
+
+  #gameCanvas {
+    max-width: 100%;
+  }
+}
+
+/* Mobile (480px and down) */
+@media (max-width: 480px) {
+  body {
+    padding: 0.5rem;
+  }
+
+  .container {
+    border-radius: 8px;
+  }
+
+  .game-header {
+    padding: 1.5rem 1rem;
+  }
+
+  .game-header h1 {
+    font-size: 1.75rem;
+  }
+
+  .subtitle {
+    font-size: 0.9rem;
+  }
+
+  .game-wrapper {
+    padding: 1rem;
+    gap: 1rem;
+  }
+
+  .game-info {
+    gap: 1.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .info-item {
+    font-size: 1rem;
+  }
+
+  .info-item span {
+    font-size: 1.25rem;
+  }
+
+  .game-controls {
+    gap: 0.75rem;
+  }
+
+  .btn {
+    padding: 0.6rem 1.5rem;
+    font-size: 0.9rem;
+  }
+
+  #gameCanvas {
+    border-width: 2px;
+  }
+}
+
+/* ============================================================================
+   Animations
+   ============================================================================ */
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.btn:hover:not(:disabled) {
+  animation: pulse 0.3s ease;
+}
