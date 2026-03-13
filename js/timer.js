@@ -2,9 +2,14 @@
  * timer.js
  * Timer and difficulty scaling system for Mole Smasher
  *
- * Manages game timing, tracks elapsed time, and calculates spawn intervals
- * based on game difficulty phases. Implements smooth interpolation between
- * difficulty levels rather than discrete jumps.
+ * Manages game timing, tracks elapsed time, calculates remaining time,
+ * and computes spawn intervals based on game difficulty phases.
+ * Implements smooth interpolation between difficulty levels rather than
+ * discrete jumps.
+ * 
+ * The timer is the single source of truth for timing information.
+ * All game systems should query this module for elapsed/remaining time
+ * rather than calculating it independently.
  *
  * Difficulty Progression:
  * - Early Game (0-20s):   Spawn interval decreases from 1500ms → 900ms
@@ -14,13 +19,14 @@
  * @module timer
  */
 
-const TimerManager = (() => {
+const CountdownTimer = (() => {
   // =========================================================================
   // PRIVATE VARIABLES - Timing State
   // =========================================================================
 
   let startTime = null;
   let isRunning = false;
+  let gameDuration = 60; // Game duration in seconds
 
   // Difficulty phase boundaries (in seconds)
   const PHASE_BREAKPOINTS = {
@@ -35,6 +41,37 @@ const TimerManager = (() => {
     EARLY_MID_BOUNDARY: 900,
     MIDDLE_LATE_BOUNDARY: 500,
     MIN_INTERVAL: 300      // Fastest spawn rate (minimum 300ms for human reaction time)
+  };
+
+  // =========================================================================
+  // PRIVATE FUNCTIONS - Time Calculation
+  // =========================================================================
+
+  /**
+   * Calculate elapsed time since game start
+   * Uses wall-clock time (not frame-based) for accuracy
+   * 
+   * @returns {number} Elapsed time in seconds (0 if timer not started)
+   */
+  const calculateElapsedTime = () => {
+    if (!isRunning || startTime === null) {
+      return 0;
+    }
+
+    return (GameUtils.getCurrentTime() - startTime) / 1000;
+  };
+
+  /**
+   * Calculate remaining time in the game
+   * Subtracts elapsed time from game duration
+   * Always returns non-negative value (clamps to 0 at boundaries)
+   * 
+   * @returns {number} Remaining time in seconds (0 when game is over)
+   */
+  const calculateRemainingTime = () => {
+    const elapsedSeconds = calculateElapsedTime();
+    const remaining = gameDuration - elapsedSeconds;
+    return GameUtils.clamp(remaining, 0, gameDuration);
   };
 
   // =========================================================================
@@ -65,7 +102,7 @@ const TimerManager = (() => {
       // Late Game (40-60s): 500ms → 300ms
       const phaseElapsed = elapsedSeconds - PHASE_BREAKPOINTS.MIDDLE_PHASE_END;
       const phaseDuration = PHASE_BREAKPOINTS.LATE_PHASE_END - PHASE_BREAKPOINTS.MIDDLE_PHASE_END;
-      const phaseProgress = Math.min(1, phaseElapsed / phaseDuration);
+      const phaseProgress = GameUtils.clamp(phaseElapsed / phaseDuration, 0, 1);
       const intervalRange = SPAWN_INTERVALS.MIDDLE_LATE_BOUNDARY - SPAWN_INTERVALS.MIN_INTERVAL;
       return SPAWN_INTERVALS.MIDDLE_LATE_BOUNDARY - (intervalRange * phaseProgress);
     }
@@ -93,34 +130,41 @@ const TimerManager = (() => {
 
   /**
    * Start the timer
-   * Records start time and enables spawn interval calculations
+   * Records start time and enables timing calculations
+   * Safe to call multiple times - subsequent calls do nothing (idempotent)
+   * 
+   * @param {number} duration - Optional game duration in seconds (default: 60)
    */
-  const start = () => {
-    if (isRunning) return;
+  const start = (duration = 60) => {
+    if (isRunning) {
+      return; // Already running - idempotent
+    }
 
-    startTime = Date.now();
+    gameDuration = duration;
+    startTime = GameUtils.getCurrentTime();
     isRunning = true;
 
-    console.log('[TimerManager] Timer started');
+    console.log(`[CountdownTimer] Timer started with duration ${duration}s`);
   };
 
   /**
    * Stop the timer
-   * Pauses spawn interval calculations
+   * Pauses timing calculations but preserves elapsed time for resumption
    */
   const stop = () => {
     isRunning = false;
-    console.log('[TimerManager] Timer stopped');
+    console.log('[CountdownTimer] Timer stopped');
   };
 
   /**
    * Reset timer state
-   * Clears start time for fresh game
+   * Clears start time and sets timer to initial state for fresh game
    */
   const reset = () => {
     startTime = null;
     isRunning = false;
-    console.log('[TimerManager] Timer reset');
+    gameDuration = 60;
+    console.log('[CountdownTimer] Timer reset');
   };
 
   // =========================================================================
@@ -129,20 +173,57 @@ const TimerManager = (() => {
 
   /**
    * Get elapsed time since game start
+   * Wall-clock based for accuracy (not frame-dependent)
    *
    * @returns {number} Elapsed time in seconds (0 if timer not started)
    */
   const getElapsedTime = () => {
-    if (!isRunning || startTime === null) {
-      return 0;
-    }
+    return calculateElapsedTime();
+  };
 
-    return (Date.now() - startTime) / 1000;
+  /**
+   * Get remaining time in the game
+   * Directly calculated from elapsed time and game duration
+   * Primary API for game systems to query remaining time
+   *
+   * @returns {number} Remaining time in seconds (0 when game is over)
+   */
+  const getRemainingTime = () => {
+    return calculateRemainingTime();
+  };
+
+  /**
+   * Get remaining time as integer seconds
+   * Useful for display purposes where fractional seconds aren't needed
+   *
+   * @returns {number} Remaining time rounded down to nearest second
+   */
+  const getRemainingTimeFloor = () => {
+    return Math.floor(getRemainingTime());
+  };
+
+  /**
+   * Get game duration
+   * 
+   * @returns {number} Game duration in seconds
+   */
+  const getDuration = () => {
+    return gameDuration;
+  };
+
+  /**
+   * Check if game time has expired
+   * True when remaining time reaches 0
+   * 
+   * @returns {boolean} True if remaining time is 0 or less
+   */
+  const isGameOver = () => {
+    return getRemainingTime() <= 0;
   };
 
   /**
    * Get current spawn interval based on game progress
-   * Incorporates difficulty scaling
+   * Incorporates difficulty scaling based on elapsed time
    *
    * @returns {number} Spawn interval in milliseconds
    */
@@ -174,12 +255,27 @@ const TimerManager = (() => {
   // =========================================================================
 
   return {
+    // Control
     start,
     stop,
     reset,
+    // Time queries
     getElapsedTime,
+    getRemainingTime,
+    getRemainingTimeFloor,
+    getDuration,
+    isGameOver,
+    // Difficulty
     getSpawnInterval,
     getPhase,
+    // State
     getIsRunning
   };
 })();
+
+// ============================================================================
+// LEGACY COMPATIBILITY - TimerManager alias
+// ============================================================================
+
+// Keep old name for backward compatibility with gameLogic.js
+const TimerManager = CountdownTimer;

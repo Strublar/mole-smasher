@@ -39,11 +39,14 @@
     </footer>
   </div>
 
+  <!-- Utility functions - must load first (dependencies for timer, grid, mole) -->
+  <script src="js/utils.js"></script>
   <!-- Grid and Mole systems - must load before game engine -->
   <script src="js/grid.js"></script>
   <script src="js/mole.js"></script>
-  <!-- Timer and spawning systems - must load before game engine -->
+  <!-- Timer system - must load before game logic -->
   <script src="js/timer.js"></script>
+  <!-- Spawning system - must load before game engine -->
   <script src="js/gameLogic.js"></script>
   <!-- Core game engine -->
   <script src="src/game.js"></script>
