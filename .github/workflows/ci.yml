@@ -10,21 +10,64 @@ jobs:
   ci:
     runs-on: ubuntu-latest
     
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
-      - name: Setup Node.js
+
+      - name: Setup Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: ${{ matrix.node-version }}
           cache: 'npm'
-      
+
       - name: Install dependencies
         run: npm ci
-      
-      - name: Build project
+
+      - name: Validate HTML structure
+        run: |
+          echo "Validating HTML files..."
+          if [ -f "index.html" ]; then
+            echo "✓ index.html found"
+          else
+            echo "✗ index.html not found"
+            exit 1
+          fi
+
+      - name: Validate JavaScript syntax
+        run: |
+          echo "Checking JavaScript files for syntax errors..."
+          for js_file in src/*.js; do
+            if [ -f "$js_file" ]; then
+              node -c "$js_file" && echo "✓ $js_file syntax valid" || exit 1
+            fi
+          done
+
+      - name: Check CSS files exist
+        run: |
+          echo "Validating CSS files..."
+          if [ -f "styles/style.css" ]; then
+            echo "✓ styles/style.css found"
+          else
+            echo "✗ styles/style.css not found"
+            exit 1
+          fi
+
+      - name: Verify canvas element
+        run: |
+          echo "Verifying canvas element in HTML..."
+          if grep -q '<canvas' index.html; then
+            echo "✓ Canvas element found in index.html"
+          else
+            echo "✗ Canvas element not found in index.html"
+            exit 1
+          fi
+
+      - name: Build script
         run: npm run build
-      
-      - name: Run tests
+
+      - name: Test script
         run: npm test
