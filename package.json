@@ -1,0 +1,30 @@
+{
+  "name": "mole-smasher",
+  "version": "0.1.0",
+  "description": "A fun HTML5 Canvas game where players click or tap moles as they pop up. Test your reflexes and aim for the highest score!",
+  "main": "index.html",
+  "scripts": {
+    "start": "echo 'Open index.html in your browser to play the game'",
+    "build": "echo 'Build script placeholder for future tooling'",
+    "test": "echo 'Test script placeholder for future testing framework'",
+    "dev": "echo 'Development server placeholder for future implementation'"
+  },
+  "keywords": [
+    "html5",
+    "canvas",
+    "game",
+    "mole-smasher",
+    "whack-a-mole",
+    "javascript"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/mole-smasher.git"
+  },
+  "devDependencies": {},
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
