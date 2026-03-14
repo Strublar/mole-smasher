@@ -30,7 +30,7 @@ const GameEngine = (() => {
   let gameState = {
     isRunning: false,
     score: 0,
-    lastFrameTime: 0
+    lastFrameTime: null
   };
 
   const GAME_CONFIG = {
@@ -115,17 +115,22 @@ const GameEngine = (() => {
   /**
    * Main game loop called at 60 FPS via requestAnimationFrame
    * Updates game state, renders canvas, and schedules next frame
-   * 
-   * @param {number} currentTime - Current timestamp in milliseconds
+   *
+   * @param {number} timestamp - Current timestamp in milliseconds (from requestAnimationFrame)
    */
-  const gameLoop = (currentTime) => {
+  const gameLoop = (timestamp) => {
     if (!gameState.isRunning) {
       return;
     }
 
-    // Calculate delta time for smooth animations
-    const deltaTime = (currentTime - gameState.lastFrameTime) / 1000;
-    gameState.lastFrameTime = currentTime;
+    // First frame: no delta to compute
+    if (gameState.lastFrameTime === null) {
+      gameState.lastFrameTime = timestamp;
+    }
+
+    // Calculate delta time in ms, clamped to 100ms to handle tab-blur spikes
+    const deltaTime = Math.min(timestamp - gameState.lastFrameTime, 100);
+    gameState.lastFrameTime = timestamp;
 
     // Update game state
     update(deltaTime);
@@ -141,7 +146,7 @@ const GameEngine = (() => {
    * Update game state each frame
    * Queries timer for remaining time, updates moles, spawning, and checks game-over
    * 
-   * @param {number} deltaTime - Time elapsed since last frame in seconds
+   * @param {number} deltaTime - Time elapsed since last frame in milliseconds, clamped to 100ms
    */
   const update = (deltaTime) => {
     // Update spawner - checks if new mole should spawn and cleans up as needed
@@ -234,8 +239,10 @@ const GameEngine = (() => {
     if (!gameState.isRunning) return;
 
     const rect = canvas.getBoundingClientRect();
-    const clickX = event.clientX - rect.left;
-    const clickY = event.clientY - rect.top;
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const clickX = (event.clientX - rect.left) * scaleX;
+    const clickY = (event.clientY - rect.top) * scaleY;
 
     handleClick(clickX, clickY);
   };
@@ -251,10 +258,14 @@ const GameEngine = (() => {
 
     event.preventDefault();
 
-    const touch = event.touches[0] || event.changedTouches[0];
+    const touch = event.touches[0] ?? event.changedTouches[0];
+    if (!touch) return;
+
     const rect = canvas.getBoundingClientRect();
-    const touchX = touch.clientX - rect.left;
-    const touchY = touch.clientY - rect.top;
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const touchX = (touch.clientX - rect.left) * scaleX;
+    const touchY = (touch.clientY - rect.top) * scaleY;
 
     handleClick(touchX, touchY);
   };
@@ -339,7 +350,7 @@ const GameEngine = (() => {
 
     gameState.isRunning = true;
     gameState.score = 0;
-    gameState.lastFrameTime = GameUtils.getCurrentTime();
+    gameState.lastFrameTime = null;
 
     // Clear moles array
     moles = [];
@@ -365,7 +376,7 @@ const GameEngine = (() => {
   const reset = () => {
     gameState.isRunning = false;
     gameState.score = 0;
-    gameState.lastFrameTime = 0;
+    gameState.lastFrameTime = null;
 
     // Clear moles
     moles = [];
@@ -425,10 +436,10 @@ const GameEngine = (() => {
    * Used by spawning system to create new moles
    * 
    * @param {number} holeIndex - Index of hole to spawn mole at (0-8)
-   * @param {number} currentTime - Current timestamp in milliseconds
+   * @param {number} _currentTime - Unused; spawn time is read from GameUtils.getCurrentTime()
    * @returns {Mole|null} The created mole or null if invalid index
    */
-  const addMole = (holeIndex, currentTime) => {
+  const addMole = (holeIndex, _currentTime) => {
     if (!grid) {
       console.warn('Grid not initialized');
       return null;
@@ -441,7 +452,7 @@ const GameEngine = (() => {
     }
 
     const mole = new Mole(hole.x, hole.y, hole.radius);
-    mole.spawn(currentTime);
+    mole.spawn(GameUtils.getCurrentTime()); // Use wall-clock time to match mole.update()
     moles.push(mole);
 
     return mole;
