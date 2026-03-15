@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Mole Smasher - A classic whack-a-mole arcade game built with HTML5 Canvas">
+  <meta name="description" content="Mole Smasher - A classic whack-a-mole arcade game">
   <title>Mole Smasher</title>
   <link rel="stylesheet" href="styles/style.css">
 </head>
@@ -17,38 +17,24 @@
     <div class="game-wrapper">
       <div class="game-info">
         <div class="info-item">
-          <label for="score-display">Score:</label>
-          <span id="score-display">0</span>
-        </div>
-        <div class="info-item">
-          <label for="timer-display">Time:</label>
-          <span id="timer-display">60</span>s
+          <label>Score:</label>
+          <span id="score-value">0</span>
         </div>
       </div>
 
-      <canvas id="gameCanvas" width="800" height="600"></canvas>
+      <div id="board" aria-label="Game board"></div>
 
       <div class="game-controls">
-        <button id="start-btn" class="btn btn-primary">Start Game</button>
-        <button id="reset-btn" class="btn btn-secondary" disabled>Reset</button>
+        <button id="btn-start" class="btn btn-primary">Start Game</button>
+        <button id="btn-pause" class="btn btn-secondary" disabled>Pause</button>
       </div>
     </div>
 
     <footer class="game-footer">
-      <p>&copy; 2024 Mole Smasher. Built with HTML5 Canvas.</p>
+      <p>&copy; 2024 Mole Smasher. Built with HTML5.</p>
     </footer>
   </div>
 
-  <!-- Utility functions - must load first (dependencies for timer, grid, mole) -->
-  <script src="js/utils.js"></script>
-  <!-- Grid and Mole systems - must load before game engine -->
-  <script src="js/grid.js"></script>
-  <script src="js/mole.js"></script>
-  <!-- Timer system - must load before game logic -->
-  <script src="js/timer.js"></script>
-  <!-- Spawning system - must load before game engine -->
-  <script src="js/gameLogic.js"></script>
-  <!-- Core game engine -->
-  <script src="src/game.js"></script>
+  <script type="module" src="src/main.js"></script>
 </body>
 </html>

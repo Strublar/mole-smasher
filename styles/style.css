@@ -112,15 +112,59 @@ body {
   text-align: right;
 }
 
-#gameCanvas {
-  border: 3px solid #667eea;
-  border-radius: 8px;
-  background: #f0f0f0;
-  cursor: crosshair;
-  max-width: 100%;
-  height: auto;
-  display: block;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+/* ============================================================================
+   Game Board — CSS Grid
+   ============================================================================ */
+
+#board {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  width: 100%;
+  max-width: 480px;
+  touch-action: manipulation;
+}
+
+.hole {
+  position: relative;
+  overflow: hidden;
+  height: 100px;
+  background: #5a3e28;
+  border-radius: 50%;
+  box-shadow: inset 0 6px 12px rgba(0, 0, 0, 0.5);
+}
+
+.mole {
+  position: absolute;
+  bottom: -100%;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at 40% 35%, #c8845a, #7a4a28);
+  border-radius: 50% 50% 40% 40%;
+  transition: bottom 0.2s ease-out;
+  cursor: pointer;
+  pointer-events: none;
+  user-select: none;
+}
+
+.mole * { pointer-events: none; }
+
+.mole--active {
+  bottom: 0;
+  pointer-events: auto;
+}
+
+.mole--retreating {
+  bottom: -100%;
+  pointer-events: none;
+}
+
+.mole--dead {
+  bottom: 0;
+  pointer-events: none;
+  filter: hue-rotate(180deg) brightness(0.5);
+  transition: filter var(--death-duration, 400ms) ease-in,
+              bottom var(--death-duration, 400ms) ease-in;
 }
 
 /* ============================================================================
@@ -215,9 +259,6 @@ body {
     gap: 2rem;
   }
 
-  #gameCanvas {
-    max-width: 100%;
-  }
 }
 
 /* Mobile (480px and down) */
@@ -269,8 +310,12 @@ body {
     font-size: 0.9rem;
   }
 
-  #gameCanvas {
-    border-width: 2px;
+  #board {
+    gap: 10px;
+  }
+
+  .hole {
+    height: 80px;
   }
 }
 
